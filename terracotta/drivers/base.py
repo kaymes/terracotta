@@ -119,6 +119,8 @@ class Driver(ABC):
                         tile_bounds: Sequence[float] = None,
                         tile_size: Sequence[int] = (256, 256),
                         preserve_values: bool = False,
+                        rgb_image: bool = False,
+                        rgba_bands: Sequence[int] = None,
                         asynchronous: bool = False) -> Any:
         """Load a raster tile with given keys and bounds.
 

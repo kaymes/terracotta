@@ -33,7 +33,7 @@ class SinglebandOptionSchema(Schema):
 
     colormap = fields.String(
         description='Colormap to apply to image (see /colormap)',
-        validate=validate.OneOf(('explicit', *AVAILABLE_CMAPS)), missing=None
+        validate=validate.OneOf(('explicit','rgbimage', *AVAILABLE_CMAPS)), missing=None
     )
 
     explicit_color_map = fields.Dict(
@@ -44,6 +44,13 @@ class SinglebandOptionSchema(Schema):
                     'Must be given together with `colormap=explicit`. Color values can be '
                     'specified either as RGB or RGBA tuple (in the range of [0, 255]), or as '
                     'hex strings.'
+    )
+
+    rgba_bands = fields.List(
+        fields.Integer(), validate=validate.Length(min=1,max=4), example='[1,2,3,4]',
+        description='rgba bands in to be used with the rgbimage colormap. '
+                    'Positive intergers are used to count from the beginning of the list of bands'
+                    'whereas negative ones count from the end. Zero denotes to not use any band.'
     )
 
     tile_size = fields.List(
@@ -64,7 +71,7 @@ class SinglebandOptionSchema(Schema):
     @pre_load
     def decode_json(self, data: Mapping[str, Any], **kwargs: Any) -> Dict[str, Any]:
         data = dict(data.items())
-        for var in ('stretch_range', 'tile_size', 'explicit_color_map'):
+        for var in ('stretch_range', 'tile_size', 'rgba_bands', 'explicit_color_map'):
             val = data.get(var)
             if val:
                 try:

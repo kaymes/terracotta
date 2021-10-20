@@ -20,13 +20,24 @@ def singleband(keys: Union[Sequence[str], Mapping[str, str]],
                tile_xyz: Tuple[int, int, int] = None, *,
                colormap: Union[str, Mapping[Number, RGBA], None] = None,
                stretch_range: Tuple[Number, Number] = None,
+               rgba_bands: Sequence[int] = None,
                tile_size: Tuple[int, int] = None) -> BinaryIO:
     """Return singleband image as PNG"""
 
     cmap_or_palette: Union[str, Sequence[RGBA], None]
 
+    if colormap == 'rgbimage':
+        rgb_image = True
+        colormap = None
+    else:
+        rgb_image = False
+        rgba_bands = None
+
     if stretch_range is None:
-        stretch_min, stretch_max = None, None
+        if rgb_image:
+            stretch_min, stretch_max = 1, 255
+        else:
+            stretch_min, stretch_max = None, None
     else:
         stretch_min, stretch_max = stretch_range
 
@@ -42,7 +53,9 @@ def singleband(keys: Union[Sequence[str], Mapping[str, str]],
         metadata = driver.get_metadata(keys)
         tile_data = xyz.get_tile_data(
             driver, keys, tile_xyz,
-            tile_size=tile_size, preserve_values=preserve_values
+            tile_size=tile_size, preserve_values=preserve_values,
+            rgb_image=rgb_image,
+            rgba_bands=rgba_bands,
         )
 
     if preserve_values:

@@ -17,6 +17,8 @@ def get_tile_data(driver: Driver,
                   tile_xyz: Tuple[int, int, int] = None,
                   *, tile_size: Tuple[int, int] = (256, 256),
                   preserve_values: bool = False,
+                  rgb_image: bool = False,
+                  rgba_bands: Sequence[int] = None,
                   asynchronous: bool = False) -> Any:
     """Retrieve raster image from driver for given XYZ tile and keys"""
 
@@ -24,6 +26,7 @@ def get_tile_data(driver: Driver,
         # read whole dataset
         return driver.get_raster_tile(
             keys, tile_size=tile_size, preserve_values=preserve_values,
+            rgb_image=rgb_image,
             asynchronous=asynchronous
         )
 
@@ -43,7 +46,10 @@ def get_tile_data(driver: Driver,
 
     return driver.get_raster_tile(
         keys, tile_bounds=target_bounds, tile_size=tile_size,
-        preserve_values=preserve_values, asynchronous=asynchronous
+        preserve_values=preserve_values,
+        rgb_image=rgb_image,
+        rgba_bands=rgba_bands,
+        asynchronous=asynchronous
     )
 
 

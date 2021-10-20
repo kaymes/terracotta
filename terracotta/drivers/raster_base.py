@@ -443,7 +443,9 @@ class RasterDriver(Driver):
                          resampling_method: str,
                          tile_bounds: Tuple[float, float, float, float] = None,
                          tile_size: Tuple[int, int] = (256, 256),
-                         preserve_values: bool = False) -> np.ma.MaskedArray:
+                         preserve_values: bool = False,
+                         rgb_image: bool = False,
+                         rgba_bands: Sequence[int] = None) -> np.ma.MaskedArray:
         """Load a raster dataset from a file through rasterio.
 
         Heavily inspired by mapbox/rio-tiler
@@ -451,6 +453,7 @@ class RasterDriver(Driver):
         import rasterio
         from rasterio import transform, windows, warp
         from rasterio.vrt import WarpedVRT
+        from rasterio.enums import ColorInterp
         from affine import Affine
 
         dst_bounds: Tuple[float, float, float, float]
@@ -524,19 +527,53 @@ class RasterDriver(Driver):
                 )
             )
 
+            # work out which bands to return
+            if rgb_image:
+                bands = []
+                band_mapping = []
+                if not rgba_bands:
+                    rgba_bands = [1,2,3,-1]
+                for index in range(4):
+                    band = rgba_bands[index] if index < len(rgba_bands) else 0
+                    if band < 0:
+                        band = vrt.count + 1 + band
+                    if band < 0 or band > vrt.count:
+                        band = 0
+                    if band != 0 and band not in bands:
+                        bands.append(band)
+                    band_mapping.append(bands.index(band) if band != 0 else None)
+            else:
+                bands = 1
+
             # read data
             with warnings.catch_warnings(), trace('read_from_vrt'):
                 warnings.filterwarnings('ignore', message='invalid value encountered.*')
-                tile_data = vrt.read(
-                    1, resampling=resampling_enum, window=out_window, out_shape=tile_size
-                )
 
-                # assemble alpha mask
-                mask_idx = vrt.count
-                mask = vrt.read(mask_idx, window=out_window, out_shape=tile_size) == 0
+                if bands:
+                    tile_data = vrt.read(
+                        bands, resampling=resampling_enum, window=out_window, out_shape=tile_size
+                    )
+                else:
+                    tile_data = None
 
-                if src.nodata is not None:
-                    mask |= tile_data == src.nodata
+                if rgb_image:
+                    # sort the bands in the tile data
+                    mask = np.stack(
+                        [tile_data[band_mapping[3],:,:] if band_mapping[3] is not None else np.ones(tile_size) for _ in range(3)],
+                        axis=-1
+                    ) == 0
+                    tile_data = np.stack(
+                        [tile_data[band_mapping[i],:,:] if band_mapping[i] is not None else np.zeros(tile_size) for i in range(3)],
+                        axis=-1
+                    )
+
+                else:
+                    # assemble alpha mask
+                    mask_idx = vrt.count
+                    mask = vrt.read(mask_idx, window=out_window, out_shape=tile_size) == 0
+
+                    if src.nodata is not None:
+                        mask |= tile_data == src.nodata
 
         return np.ma.masked_array(tile_data, mask=mask)
 
@@ -547,7 +584,10 @@ class RasterDriver(Driver):
                         tile_bounds: Sequence[float] = None,
                         tile_size: Sequence[int] = None,
                         preserve_values: bool = False,
-                        asynchronous: bool = False) -> Any:
+                        rgb_image: bool = False,
+                        rgba_bands: Sequence[int] = None,
+                        asynchronous: bool = False
+                        ) -> Any:
         # This wrapper handles cache interaction and asynchronous tile retrieval.
         # The real work is done in _get_raster_tile.
 
@@ -569,6 +609,8 @@ class RasterDriver(Driver):
             tile_bounds=tuple(tile_bounds) if tile_bounds else None,
             tile_size=tuple(tile_size),
             preserve_values=preserve_values,
+            rgb_image=rgb_image,
+            rgba_bands=tuple(rgba_bands) if rgba_bands else None,
             reprojection_method=settings.REPROJECTION_METHOD,
             resampling_method=settings.RESAMPLING_METHOD
         )
